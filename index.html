@@ -177,5 +177,14 @@
 <script src="js/cart.js"></script>
 <script src="js/orders.js"></script>
 <script src="js/app.js"></script>
+    <script>
+  // Принудительная проверка после загрузки всех скриптов
+  if (typeof login === 'undefined') {
+    console.error('❌ login не определён! Перезагрузка...');
+    location.reload(true);
+  } else {
+    console.log('✅ login определён:', typeof login);
+  }
+</script>
   </body>
 </html>
