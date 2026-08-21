@@ -9,7 +9,7 @@
 // Для мок-данных — используй встроенную БД (режим офлайн)
 
 const USE_RENDER = true; // true = общая БД на Render, false = мок-данные
-const RENDER_URL = "https://dodo-pizza.onrender.com"; // ЗАМЕНИ НА СВОЮ ССЫЛКУ ПОСЛЕ ДЕПЛОЯ!
+const RENDER_URL = "https://marinenko-eg-ecpd.onreza.ru"; // ЗАМЕНИ НА СВОЮ ССЫЛКУ ПОСЛЕ ДЕПЛОЯ!
 const LOCAL_URL = "http://localhost:3000";
 
 // Автоматически выбираем URL
