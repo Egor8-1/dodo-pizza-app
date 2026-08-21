@@ -9,7 +9,7 @@
 // Для мок-данных — используй встроенную БД (режим офлайн)
 
 const RENDER_URL = 'https://dodo-pizza-app-marinenko-eg-ecpd.onreza.ru';
-const USE_RENDER = true;
+const USE_RENDER = false;
 const LOCAL_URL = "http://localhost:3000";
 
 // Автоматически выбираем URL
