@@ -1,23 +1,16 @@
-// ============================================================
-//  ДОДО ПИЦЦА 2.0 — ГЛАВНОЕ ПРИЛОЖЕНИЕ (фикс)
-// ============================================================
-
-// Ждём, пока функция login станет доступна
-function waitForLogin(callback) {
-  if (typeof login !== 'undefined') {
-    callback();
-  } else {
-    setTimeout(function() {
-      waitForLogin(callback);
-    }, 50);
-  }
+// ===== ПРОВЕРКА ЗАГРУЗКИ auth.js =====
+if (typeof login === 'undefined') {
+  console.log('⏳ Ожидаем загрузку auth.js...');
+  setTimeout(function() {
+    location.reload(true);
+  }, 500);
 }
 
 // ===== НАВИГАЦИЯ =====
 function navigateTo(page) {
-  const links = document.querySelectorAll('.header__link[data-page]');
+  var links = document.querySelectorAll('.header__link[data-page]');
   links.forEach(function(link) { link.classList.remove('active'); });
-  const activeLink = document.querySelector('.header__link[data-page="' + page + '"]');
+  var activeLink = document.querySelector('.header__link[data-page="' + page + '"]');
   if (activeLink) activeLink.classList.add('active');
   switch (page) {
     case 'catalog': renderCatalog(); break;
@@ -30,11 +23,11 @@ function navigateTo(page) {
 // ===== КАТАЛОГ =====
 async function renderCatalog(category) {
   if (typeof category === 'undefined') category = 'Все';
-  const container = document.getElementById('content');
+  var container = document.getElementById('content');
   if (!container) return;
   try {
-    const products = await getProducts();
-    const categories = ['Все'];
+    var products = await getProducts();
+    var categories = ['Все'];
     for (var i = 0; i < products.length; i++) {
       if (categories.indexOf(products[i].category) === -1) {
         categories.push(products[i].category);
@@ -66,21 +59,20 @@ async function renderCatalog(category) {
 
 // ===== ИНИЦИАЛИЗАЦИЯ =====
 document.addEventListener('DOMContentLoaded', function() {
-  waitForLogin(function() {
-    loadCart();
-    updateCartCount();
-    var links = document.querySelectorAll('.header__link[data-page]');
-    for (var i = 0; i < links.length; i++) {
-      links[i].addEventListener('click', function(e) {
-        e.preventDefault();
-        navigateTo(this.dataset.page);
-      });
-    }
-    renderCatalog();
-    initAuthUI();
-    console.log('🍕 Додо Пицца 2.0 загружена');
-  });
+  loadCart();
+  updateCartCount();
+  var links = document.querySelectorAll('.header__link[data-page]');
+  for (var i = 0; i < links.length; i++) {
+    links[i].addEventListener('click', function(e) {
+      e.preventDefault();
+      navigateTo(this.dataset.page);
+    });
+  }
+  renderCatalog();
+  initAuthUI();
+  console.log('🍕 Додо Пицца 2.0 загружена');
 });
 
+// ===== ЭКСПОРТ =====
 window.navigateTo = navigateTo;
 window.renderCatalog = renderCatalog;
