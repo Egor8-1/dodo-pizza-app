@@ -223,3 +223,8 @@ async function showOrderTracking(orderId) {
 // ===== ЭКСПОРТ =====
 window.renderOrders = renderOrders;
 window.showOrderTracking = showOrderTracking;
+// ===== ЭКСПОРТ ДЛЯ ДРУГИХ ФАЙЛОВ =====
+window.getStatusLabel = getStatusLabel;
+window.getStatusEmoji = getStatusEmoji;
+window.renderOrders = renderOrders;
+window.showOrderTracking = showOrderTracking;
