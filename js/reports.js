@@ -1,7 +1,14 @@
-// ============================================================
-//  ДОДО ПИЦЦА 2.0 — ОТЧЁТЫ
-//  Чёрный фон + оранжевый акцент
-// ============================================================
+
+// ===== СТАТУСЫ =====
+function getStatusLabel(status) {
+  const map = {
+    'Новый': { label: 'Новый', class: 'status-new' },
+    'Готовится': { label: 'Готовится', class: 'status-cooking' },
+    'Готов к выдаче': { label: 'Готов к выдаче', class: 'status-ready' },
+    'Выдан': { label: 'Выдан', class: 'status-done' }
+  };
+  return map[status] || { label: status, class: '' };
+}
 
 // ===== ГЛАВНЫЙ ОТЧЁТ =====
 async function renderReports() {
