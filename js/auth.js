@@ -221,6 +221,7 @@ document.addEventListener("DOMContentLoaded", () => {
 //  ЭКСПОРТ В ГЛОБАЛЬНУЮ ОБЛАСТЬ
 // ============================================================
 
+// ===== ЭТО РЕШИТ ВСЁ =====
 window.login = login;
 window.register = register;
 window.logout = logout;
@@ -228,3 +229,34 @@ window.getCurrentUser = getCurrentUser;
 window.isAuthenticated = isAuthenticated;
 window.hasRole = hasRole;
 window.initAuthUI = initAuthUI;
+
+// ===== НОВАЯ ФУНКЦИЯ ДЛЯ КНОПКИ =====
+window.handleLogin = function() {
+  const loginField = document.getElementById('loginInput');
+  const passwordField = document.getElementById('passwordInput');
+  const roleSelect = document.getElementById('roleSelect');
+  
+  if (!loginField || !passwordField || !roleSelect) {
+    alert('❌ Ошибка: не найдены поля ввода');
+    return;
+  }
+  
+  const login = loginField.value.trim();
+  const password = passwordField.value.trim();
+  const role = roleSelect.value;
+  
+  if (!login || !password) {
+    alert('⚠️ Заполните все поля');
+    return;
+  }
+  
+  window.login(login, password, role)
+    .then(function(user) {
+      localStorage.setItem('dodoUser', JSON.stringify(user));
+      alert('✅ Добро пожаловать, ' + (user.name || user.login) + '!');
+      location.reload();
+    })
+    .catch(function(err) {
+      alert('❌ ' + err.message);
+    });
+};
