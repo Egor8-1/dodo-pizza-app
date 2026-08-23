@@ -76,3 +76,7 @@ document.addEventListener('DOMContentLoaded', function() {
 // ===== ЭКСПОРТ =====
 window.navigateTo = navigateTo;
 window.renderCatalog = renderCatalog;
+// ===== ДУБЛЕР ДЛЯ БЕЗОПАСНОСТИ =====
+window.handleLogin = window.handleLogin || function() {
+  alert('⚠️ handleLogin ещё не загружен, попробуйте обновить страницу (Ctrl+F5)');
+};
