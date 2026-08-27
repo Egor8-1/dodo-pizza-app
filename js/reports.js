@@ -349,12 +349,17 @@ function generatePDF(title, headers, rows, filename) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('landscape', 'mm', 'a4');
 
+  // ===== ПОДКЛЮЧАЕМ РУССКИЙ ШРИФТ =====
+  doc.addFileToVFS('Roboto-Regular.ttf', fontRoboto); // жди ниже
+  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
+  doc.setFont('Roboto');
+
   // Заголовок
   doc.setFontSize(18);
   doc.text(title, 14, 20);
   doc.setFontSize(10);
   doc.text('Додо Пицца — автоматизированная система заказов', 14, 28);
-  doc.text('Сгенерирован: ' + new Date().toLocaleString(), 14, 34);
+  doc.text('Сгенерирован: ' + new Date().toLocaleString('ru-RU'), 14, 34);
 
   // Таблица
   doc.autoTable({
@@ -362,8 +367,17 @@ function generatePDF(title, headers, rows, filename) {
     body: rows,
     startY: 42,
     theme: 'grid',
-    styles: { fontSize: 8, cellPadding: 2 },
-    headStyles: { fillColor: [243, 115, 33], textColor: [255, 255, 255], fontSize: 9 },
+    styles: { 
+      fontSize: 8, 
+      cellPadding: 2,
+      font: 'Roboto'
+    },
+    headStyles: { 
+      fillColor: [243, 115, 33], 
+      textColor: [255, 255, 255], 
+      fontSize: 9,
+      font: 'Roboto'
+    },
     alternateRowStyles: { fillColor: [240, 240, 240] }
   });
 
