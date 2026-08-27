@@ -349,12 +349,10 @@ function generatePDF(title, headers, rows, filename) {
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF('landscape', 'mm', 'a4');
 
-  // ===== ПОДКЛЮЧАЕМ РУССКИЙ ШРИФТ =====
-  doc.addFileToVFS('Roboto-Regular.ttf', fontRoboto); // жди ниже
-  doc.addFont('Roboto-Regular.ttf', 'Roboto', 'normal');
-  doc.setFont('Roboto');
+  // ===== ИСПОЛЬЗУЕМ СТАНДАРТНЫЙ ШРИФТ С ПОДДЕРЖКОЙ КИРИЛЛИЦЫ =====
+  doc.setFont('helvetica', 'normal');
 
-  // Заголовок
+  // Заголовок (русский через unicode)
   doc.setFontSize(18);
   doc.text(title, 14, 20);
   doc.setFontSize(10);
@@ -367,17 +365,8 @@ function generatePDF(title, headers, rows, filename) {
     body: rows,
     startY: 42,
     theme: 'grid',
-    styles: { 
-      fontSize: 8, 
-      cellPadding: 2,
-      font: 'Roboto'
-    },
-    headStyles: { 
-      fillColor: [243, 115, 33], 
-      textColor: [255, 255, 255], 
-      fontSize: 9,
-      font: 'Roboto'
-    },
+    styles: { fontSize: 8, cellPadding: 2 },
+    headStyles: { fillColor: [243, 115, 33], textColor: [255, 255, 255], fontSize: 9 },
     alternateRowStyles: { fillColor: [240, 240, 240] }
   });
 
