@@ -1,6 +1,6 @@
 // ============================================================
-//  ДОДО ПИЦЦА 2.0 — ОТЧЕТЫ С ЭКСПОРТОМ В PDF
-//  Русский язык через встроенный шрифт
+//  ДОДО ПИЦЦА 2.0 — ОТЧЕТЫ
+//  PDF через html2canvas + jsPDF (русский РАБОТАЕТ!)
 // ============================================================
 
 function getStatusLabel(status) {
@@ -14,7 +14,8 @@ function getStatusLabel(status) {
 }
 
 // ============================================================
-//  ЭКСПОРТ В PDF — РАБОТАЕТ С РУССКИМ!
+//  ЭКСПОРТ В PDF ЧЕРЕЗ html2canvas
+//  РУССКИЙ ТЕКСТ — ИДЕАЛЬНО!
 // ============================================================
 
 function exportReportToPDF(reportId, title) {
@@ -24,94 +25,119 @@ function exportReportToPDF(reportId, title) {
     return;
   }
 
-  // Собираем данные из таблицы
-  const table = element.querySelector('table');
-  if (!table) {
-    alert('❌ Таблица не найдена');
-    return;
-  }
+  // Клонируем элемент
+  const clone = element.cloneNode(true);
+  
+  // Убираем все кнопки из клона
+  const buttons = clone.querySelectorAll('button');
+  buttons.forEach(btn => btn.remove());
 
-  // Получаем заголовки и строки
-  const headers = [];
-  const rows = [];
-
-  // Заголовки
-  const ths = table.querySelectorAll('thead th');
-  ths.forEach(th => headers.push(th.textContent.trim()));
-
-  // Строки
-  const trs = table.querySelectorAll('tbody tr');
-  trs.forEach(tr => {
-    const row = [];
-    const tds = tr.querySelectorAll('td');
-    tds.forEach(td => {
-      // Убираем вложенные HTML (статус-бейджи)
-      let text = td.textContent.trim();
-      // Если есть strong — берем его текст
-      const strong = td.querySelector('strong');
-      if (strong) text = strong.textContent.trim();
-      row.push(text);
-    });
-    if (row.length > 0) rows.push(row);
-  });
-
-  if (headers.length === 0 || rows.length === 0) {
-    alert('❌ Нет данных для экспорта');
-    return;
-  }
-
-  // ===== СОЗДАЕМ PDF =====
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF('landscape', 'mm', 'a4');
-
-  // ===== РУССКИЙ ШРИФТ ЧЕРЕЗ UNICODE =====
-  function ru(text) {
-    return unescape(encodeURIComponent(text));
-  }
-
-  doc.setFont('helvetica', 'normal');
-
-  // Заголовок
-  doc.setFontSize(18);
-  doc.text(ru(title), 14, 20);
-
-  doc.setFontSize(10);
-  doc.text(ru('Додо Пицца — автоматизированная система заказов'), 14, 28);
-  doc.text(ru('Сгенерирован: ' + new Date().toLocaleString('ru-RU')), 14, 34);
-
-  // Таблица
-  doc.autoTable({
-    head: [headers.map(ru)],
-    body: rows.map(row => row.map(ru)),
-    startY: 42,
-    theme: 'grid',
-    styles: {
-      fontSize: 8,
-      cellPadding: 2,
-      font: 'helvetica'
-    },
-    headStyles: {
-      fillColor: [243, 115, 33],
-      textColor: [255, 255, 255],
-      fontSize: 9,
-      font: 'helvetica'
-    },
-    alternateRowStyles: {
-      fillColor: [240, 240, 240]
+  // Добавляем стили для печати (чтобы выглядело как на экране)
+  const style = document.createElement('style');
+  style.textContent = `
+    body { 
+      font-family: 'Roboto', 'Arial', sans-serif; 
+      background: #fff; 
+      padding: 20px; 
+      color: #1a1a1a;
     }
-  });
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin-top: 10px;
+    }
+    th, td { 
+      padding: 8px 12px; 
+      text-align: left; 
+      border: 1px solid #ddd;
+    }
+    th { 
+      background: #F37321; 
+      color: #fff; 
+      font-weight: 700;
+    }
+    td { background: #fff; color: #1a1a1a; }
+    tr:nth-child(even) td { background: #f9f9f9; }
+    .status-badge { 
+      padding: 3px 12px; 
+      border-radius: 20px; 
+      font-size: 13px; 
+      font-weight: 600; 
+      display: inline-block; 
+    }
+    .status-new { background: #fff3cd; color: #856404; }
+    .status-cooking { background: #ffe0b2; color: #e65100; }
+    .status-ready { background: #c8e6c9; color: #1e7e34; }
+    .status-done { background: #e0e0e0; color: #555; }
+    h3 { color: #1a1a1a; margin-bottom: 8px; }
+    .reports__section { 
+      padding: 16px; 
+      background: #fff; 
+      border-radius: 8px; 
+      margin-bottom: 16px; 
+    }
+    .report-title {
+      font-size: 20px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 4px;
+    }
+    .report-subtitle {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 12px;
+    }
+  `;
+  clone.prepend(style);
 
-  // Сохраняем
-  doc.save(title + '.pdf');
+  // Добавляем заголовок отчета
+  const header = document.createElement('div');
+  header.innerHTML = `
+    <div class="report-title">${title}</div>
+    <div class="report-subtitle">Додо Пицца — автоматизированная система заказов</div>
+    <div class="report-subtitle">Сгенерирован: ${new Date().toLocaleString('ru-RU')}</div>
+  `;
+  clone.prepend(header);
 
-  // Визуальный фидбек
+  // Меняем текст кнопки
   const btn = event?.target;
   if (btn) {
-    btn.textContent = '✅ PDF готов';
-    setTimeout(() => {
-      btn.textContent = '📄 PDF';
-    }, 2000);
+    btn.textContent = '⏳ Генерация...';
+    btn.disabled = true;
   }
+
+  // Рендерим в canvas и сохраняем в PDF
+  html2canvas(clone, {
+    scale: 2,
+    useCORS: true,
+    allowTaint: true,
+    backgroundColor: '#ffffff',
+    logging: false,
+    width: clone.scrollWidth,
+    height: clone.scrollHeight
+  }).then(canvas => {
+    const imgData = canvas.toDataURL('image/jpeg', 0.95);
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('landscape', 'mm', 'a4');
+    
+    const imgWidth = 277; // A4 landscape
+    const imgHeight = (canvas.height * imgWidth) / canvas.width;
+    
+    doc.addImage(imgData, 'JPEG', 10, 10, imgWidth - 20, imgHeight - 20);
+    doc.save(title + '.pdf');
+    
+    if (btn) {
+      btn.textContent = '📄 PDF';
+      btn.disabled = false;
+    }
+  }).catch(err => {
+    console.error('❌ Ошибка PDF:', err);
+    alert('❌ Ошибка генерации PDF: ' + err.message);
+    if (btn) {
+      btn.textContent = '📄 PDF';
+      btn.disabled = false;
+    }
+  });
 }
 
 // ============================================================
