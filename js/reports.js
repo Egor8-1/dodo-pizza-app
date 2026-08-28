@@ -16,34 +16,35 @@ function getStatusLabel(status) {
 //  ЭКСПОРТ В PDF ЧЕРЕЗ PDF-LIB
 // ============================================================
 
-function exportReportToPDF(reportId, title) {
-  const element = document.getElementById(reportId);
+async function exportReportToPDF(reportId, title) {
+  var element = document.getElementById(reportId);
   if (!element) {
-    alert('❌ Отчет не найден');
+    alert('❌ Отчёт не найден');
     return;
   }
 
-  // Собираем данные из таблицы
-  const table = element.querySelector('table');
+  var table = element.querySelector('table');
   if (!table) {
     alert('❌ Таблица не найдена');
     return;
   }
 
-  // Заголовки
-  const headers = [];
-  const ths = table.querySelectorAll('thead th');
-  ths.forEach(th => headers.push(th.textContent.trim()));
+  // Собираем заголовки
+  var headers = [];
+  var ths = table.querySelectorAll('thead th');
+  ths.forEach(function(th) {
+    headers.push(th.textContent.trim());
+  });
 
-  // Данные
-  const rows = [];
-  const trs = table.querySelectorAll('tbody tr');
-  trs.forEach(tr => {
-    const row = [];
-    const tds = tr.querySelectorAll('td');
-    tds.forEach(td => {
-      let text = td.textContent.trim();
-      const strong = td.querySelector('strong');
+  // Собираем данные
+  var rows = [];
+  var trs = table.querySelectorAll('tbody tr');
+  trs.forEach(function(tr) {
+    var row = [];
+    var tds = tr.querySelectorAll('td');
+    tds.forEach(function(td) {
+      var text = td.textContent.trim();
+      var strong = td.querySelector('strong');
       if (strong) text = strong.textContent.trim();
       row.push(text);
     });
@@ -55,52 +56,56 @@ function exportReportToPDF(reportId, title) {
     return;
   }
 
-  // Меняем текст кнопки
-  const btn = event?.target;
+  // Меняем кнопку
+  var btn = event && event.target;
   if (btn) {
     btn.textContent = '⏳ Генерация...';
     btn.disabled = true;
   }
 
   try {
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('landscape', 'mm', 'a4');
+    // ===== ЗАГРУЖАЕМ ШРИФТ =====
+    var fontResponse = await fetch('fonts/Roboto.ttf');
+    var fontArrayBuffer = await fontResponse.arrayBuffer();
 
-    // Функция для преобразования текста в Unicode-коды
-    function toUnicode(str) {
-      return str.split('').map(function(char) {
-        var code = char.charCodeAt(0);
-        if (code > 127) {
-          return '\\u' + code.toString(16).padStart(4, '0');
-        }
-        return char;
-      }).join('');
-    }
+    // Конвертируем ArrayBuffer в base64
+    var fontBase64 = btoa(
+      new Uint8Array(fontArrayBuffer).reduce(function(data, byte) {
+        return data + String.fromCharCode(byte);
+      }, '')
+    );
+
+    var doc = new jspdf.jsPDF('landscape', 'mm', 'a4');
+
+    // Подключаем шрифт
+    doc.addFileToVFS('Roboto.ttf', fontBase64);
+    doc.addFont('Roboto.ttf', 'Roboto', 'normal');
+    doc.setFont('Roboto');
 
     // Заголовок
     doc.setFontSize(18);
-    doc.text(toUnicode(title), 14, 20);
+    doc.text(title, 14, 20);
 
     doc.setFontSize(10);
-    doc.text(toUnicode('Додо Пицца — автоматизированная система заказов'), 14, 28);
-    doc.text(toUnicode('Сгенерирован: ' + new Date().toLocaleString('ru-RU')), 14, 34);
+    doc.text('Додо Пицца — автоматизированная система заказов', 14, 28);
+    doc.text('Сгенерирован: ' + new Date().toLocaleString('ru-RU'), 14, 34);
 
     // Таблица
     doc.autoTable({
-      head: [headers.map(toUnicode)],
-      body: rows.map(function(row) {
-        return row.map(toUnicode);
-      }),
+      head: [headers],
+      body: rows,
       startY: 42,
       theme: 'grid',
       styles: {
         fontSize: 8,
-        cellPadding: 2
+        cellPadding: 2,
+        font: 'Roboto'
       },
       headStyles: {
         fillColor: [243, 115, 33],
         textColor: [255, 255, 255],
-        fontSize: 9
+        fontSize: 9,
+        font: 'Roboto'
       },
       alternateRowStyles: {
         fillColor: [240, 240, 240]
