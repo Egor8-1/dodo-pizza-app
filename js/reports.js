@@ -1,6 +1,5 @@
 // ============================================================
-//  ДОДО ПИЦЦА 2.0 — ОТЧЕТЫ
-//  PDF через html2canvas + jsPDF (русский РАБОТАЕТ!)
+//  ДОДО ПИЦЦА 2.0 — ОТЧЕТЫ С PDF-LIB (РУССКИЙ РАБОТАЕТ!)
 // ============================================================
 
 function getStatusLabel(status) {
@@ -14,90 +13,47 @@ function getStatusLabel(status) {
 }
 
 // ============================================================
-//  ЭКСПОРТ В PDF ЧЕРЕЗ html2canvas
-//  РУССКИЙ ТЕКСТ — ИДЕАЛЬНО!
+//  ЭКСПОРТ В PDF ЧЕРЕЗ PDF-LIB
 // ============================================================
 
-function exportReportToPDF(reportId, title) {
+async function exportReportToPDF(reportId, title) {
   const element = document.getElementById(reportId);
   if (!element) {
     alert('❌ Отчет не найден');
     return;
   }
 
-  // Клонируем элемент
-  const clone = element.cloneNode(true);
-  
-  // Убираем все кнопки из клона
-  const buttons = clone.querySelectorAll('button');
-  buttons.forEach(btn => btn.remove());
+  // Собираем данные из таблицы
+  const table = element.querySelector('table');
+  if (!table) {
+    alert('❌ Таблица не найдена');
+    return;
+  }
 
-  // Добавляем стили для печати (чтобы выглядело как на экране)
-  const style = document.createElement('style');
-  style.textContent = `
-    body { 
-      font-family: 'Roboto', 'Arial', sans-serif; 
-      background: #fff; 
-      padding: 20px; 
-      color: #1a1a1a;
-    }
-    table { 
-      width: 100%; 
-      border-collapse: collapse; 
-      margin-top: 10px;
-    }
-    th, td { 
-      padding: 8px 12px; 
-      text-align: left; 
-      border: 1px solid #ddd;
-    }
-    th { 
-      background: #F37321; 
-      color: #fff; 
-      font-weight: 700;
-    }
-    td { background: #fff; color: #1a1a1a; }
-    tr:nth-child(even) td { background: #f9f9f9; }
-    .status-badge { 
-      padding: 3px 12px; 
-      border-radius: 20px; 
-      font-size: 13px; 
-      font-weight: 600; 
-      display: inline-block; 
-    }
-    .status-new { background: #fff3cd; color: #856404; }
-    .status-cooking { background: #ffe0b2; color: #e65100; }
-    .status-ready { background: #c8e6c9; color: #1e7e34; }
-    .status-done { background: #e0e0e0; color: #555; }
-    h3 { color: #1a1a1a; margin-bottom: 8px; }
-    .reports__section { 
-      padding: 16px; 
-      background: #fff; 
-      border-radius: 8px; 
-      margin-bottom: 16px; 
-    }
-    .report-title {
-      font-size: 20px;
-      font-weight: 700;
-      color: #1a1a1a;
-      margin-bottom: 4px;
-    }
-    .report-subtitle {
-      font-size: 12px;
-      color: #888;
-      margin-bottom: 12px;
-    }
-  `;
-  clone.prepend(style);
+  // Заголовки
+  const headers = [];
+  const ths = table.querySelectorAll('thead th');
+  ths.forEach(th => headers.push(th.textContent.trim()));
 
-  // Добавляем заголовок отчета
-  const header = document.createElement('div');
-  header.innerHTML = `
-    <div class="report-title">${title}</div>
-    <div class="report-subtitle">Додо Пицца — автоматизированная система заказов</div>
-    <div class="report-subtitle">Сгенерирован: ${new Date().toLocaleString('ru-RU')}</div>
-  `;
-  clone.prepend(header);
+  // Данные
+  const rows = [];
+  const trs = table.querySelectorAll('tbody tr');
+  trs.forEach(tr => {
+    const row = [];
+    const tds = tr.querySelectorAll('td');
+    tds.forEach(td => {
+      let text = td.textContent.trim();
+      const strong = td.querySelector('strong');
+      if (strong) text = strong.textContent.trim();
+      row.push(text);
+    });
+    if (row.length > 0) rows.push(row);
+  });
+
+  if (headers.length === 0 || rows.length === 0) {
+    alert('❌ Нет данных для экспорта');
+    return;
+  }
 
   // Меняем текст кнопки
   const btn = event?.target;
@@ -106,42 +62,133 @@ function exportReportToPDF(reportId, title) {
     btn.disabled = true;
   }
 
-  // Рендерим в canvas и сохраняем в PDF
-  html2canvas(clone, {
-    scale: 2,
-    useCORS: true,
-    allowTaint: true,
-    backgroundColor: '#ffffff',
-    logging: false,
-    width: clone.scrollWidth,
-    height: clone.scrollHeight
-  }).then(canvas => {
-    const imgData = canvas.toDataURL('image/jpeg', 0.95);
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF('landscape', 'mm', 'a4');
-    
-    const imgWidth = 277; // A4 landscape
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    
-    doc.addImage(imgData, 'JPEG', 10, 10, imgWidth - 20, imgHeight - 20);
-    doc.save(title + '.pdf');
-    
+  try {
+    // ===== СОЗДАЕМ PDF =====
+    const { PDFDocument, rgb, StandardFonts } = PDFLib;
+
+    // Создаем документ
+    const doc = await PDFDocument.create();
+    const page = doc.addPage([842, 595]); // A4 landscape
+
+    // Встраиваем стандартный шрифт (поддерживает кириллицу)
+    const font = await doc.embedFont(StandardFonts.Helvetica);
+
+    // Размеры страницы
+    const { width, height } = page.getSize();
+    let y = height - 40;
+
+    // Функция для рисования текста с поддержкой кириллицы
+    function drawText(text, x, y, size = 14, color = rgb(0, 0, 0)) {
+      page.drawText(text, {
+        x: x,
+        y: y,
+        size: size,
+        font: font,
+        color: color
+      });
+    }
+
+    // Заголовок
+    drawText(title, 50, y, 18, rgb(0.95, 0.45, 0.13));
+    y -= 20;
+
+    drawText('Додо Пицца — автоматизированная система заказов', 50, y, 10);
+    y -= 14;
+    drawText('Сгенерирован: ' + new Date().toLocaleString('ru-RU'), 50, y, 10);
+    y -= 20;
+
+    // ===== РИСУЕМ ТАБЛИЦУ =====
+    const cellPadding = 6;
+    const colWidth = (width - 100) / headers.length;
+    const rowHeight = 20;
+
+    // Заголовки
+    let x = 50;
+    headers.forEach(header => {
+      page.drawRectangle({
+        x: x,
+        y: y - rowHeight,
+        width: colWidth,
+        height: rowHeight,
+        borderColor: rgb(0.2, 0.2, 0.2),
+        borderWidth: 1,
+        color: rgb(0.95, 0.45, 0.13)
+      });
+      drawText(header, x + cellPadding, y - cellPadding - 12, 9, rgb(1, 1, 1));
+      x += colWidth;
+    });
+
+    y -= rowHeight;
+
+    // Строки
+    rows.forEach(row => {
+      x = 50;
+      row.forEach(cell => {
+        page.drawRectangle({
+          x: x,
+          y: y - rowHeight,
+          width: colWidth,
+          height: rowHeight,
+          borderColor: rgb(0.2, 0.2, 0.2),
+          borderWidth: 1
+        });
+        drawText(cell, x + cellPadding, y - cellPadding - 12, 8, rgb(0, 0, 0));
+        x += colWidth;
+      });
+      y -= rowHeight;
+    });
+
+    // Сохраняем PDF
+    const pdfBytes = await doc.save();
+    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(blob);
+    link.download = title + '.pdf';
+    link.click();
+
+    if (btn) {
+      btn.textContent = '✅ PDF готов';
+      setTimeout(() => {
+        btn.textContent = '📄 PDF';
+        btn.disabled = false;
+      }, 2000);
+    }
+
+  } catch (error) {
+    console.error('❌ Ошибка PDF:', error);
+    alert('❌ Ошибка генерации PDF: ' + error.message);
     if (btn) {
       btn.textContent = '📄 PDF';
       btn.disabled = false;
     }
-  }).catch(err => {
-    console.error('❌ Ошибка PDF:', err);
-    alert('❌ Ошибка генерации PDF: ' + err.message);
-    if (btn) {
-      btn.textContent = '📄 PDF';
-      btn.disabled = false;
-    }
+  }
+}
+
+// ============================================================
+//  ВСЕ ОТЧЕТЫ СРАЗУ
+// ============================================================
+
+function exportAllReports() {
+  const reports = [
+    { id: 'report-finance', name: 'Финансовый_отчет' },
+    { id: 'report-status', name: 'Отчет_по_статусам' },
+    { id: 'report-points', name: 'Отчет_по_пунктам' },
+    { id: 'report-products', name: 'Отчет_по_товарам' },
+    { id: 'report-periods', name: 'Отчет_по_периодам' },
+    { id: 'report-users', name: 'Отчет_по_сотрудникам' }
+  ];
+
+  let delay = 0;
+  reports.forEach(r => {
+    setTimeout(() => {
+      exportReportToPDF(r.id, r.name);
+    }, delay);
+    delay += 500;
   });
 }
 
 // ============================================================
-//  ОСНОВНОЙ ОТЧЕТ
+//  ОСНОВНОЙ ОТЧЕТ (renderReports) — тот же, что был
 // ============================================================
 
 async function renderReports() {
@@ -424,29 +471,6 @@ async function renderReports() {
   } catch (error) {
     container.innerHTML = `<p style="color:#dc3545;">❌ Ошибка: ${error.message}</p>`;
   }
-}
-
-// ============================================================
-//  ВСЕ ОТЧЕТЫ СРАЗУ
-// ============================================================
-
-function exportAllReports() {
-  const reports = [
-    { id: 'report-finance', name: 'Финансовый_отчет' },
-    { id: 'report-status', name: 'Отчет_по_статусам' },
-    { id: 'report-points', name: 'Отчет_по_пунктам' },
-    { id: 'report-products', name: 'Отчет_по_товарам' },
-    { id: 'report-periods', name: 'Отчет_по_периодам' },
-    { id: 'report-users', name: 'Отчет_по_сотрудникам' }
-  ];
-
-  let delay = 0;
-  reports.forEach(r => {
-    setTimeout(() => {
-      exportReportToPDF(r.id, r.name);
-    }, delay);
-    delay += 500;
-  });
 }
 
 // ===== ЭКСПОРТ =====
