@@ -1,6 +1,6 @@
 // ============================================================
-//  ДОДО ПИЦЦА 2.0 — ОТЧЕТЫ С ТАБЛИЦАМИ И PDF
-//  Чёрный фон + оранжевый акцент
+//  ДОДО ПИЦЦА 2.0 — ОТЧЕТЫ С ЭКСПОРТОМ В PDF
+//  Работает с русским языком через html2pdf
 // ============================================================
 
 // ===== СТАТУСЫ =====
@@ -14,7 +14,89 @@ function getStatusLabel(status) {
   return map[status] || { label: status, class: '' };
 }
 
-// ===== ОСНОВНОЙ ОТЧЕТ =====
+// ============================================================
+//  ЭКСПОРТ В PDF
+// ============================================================
+function exportReportToPDF(reportId, title) {
+  const element = document.getElementById(reportId);
+  if (!element) {
+    alert('❌ Отчет не найден');
+    return;
+  }
+
+  // Клонируем
+  const clone = element.cloneNode(true);
+  
+  // Убираем все кнопки из клона
+  const buttons = clone.querySelectorAll('button');
+  buttons.forEach(btn => btn.remove());
+
+  // Убираем лишние стили, которые ломают PDF
+  const style = document.createElement('style');
+  style.textContent = `
+    body { font-family: 'Roboto', sans-serif; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #ddd; }
+    th { background: #F37321; color: #fff; }
+    tr:nth-child(even) { background: #f9f9f9; }
+    .status-badge { padding: 3px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; display: inline-block; }
+    .status-new { background: #fff3cd; color: #856404; }
+    .status-cooking { background: #ffe0b2; color: #e65100; }
+    .status-ready { background: #c8e6c9; color: #1e7e34; }
+    .status-done { background: #e0e0e0; color: #555; }
+    h3 { color: #1a1a1a; }
+    .reports__section { padding: 16px; background: #fff; border-radius: 8px; margin-bottom: 16px; }
+  `;
+  clone.prepend(style);
+
+  // Настройки PDF
+  const opt = {
+    margin: [10, 10, 10, 10],
+    filename: title + '.pdf',
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: {
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff'
+    },
+    jsPDF: {
+      unit: 'mm',
+      format: 'a4',
+      orientation: 'landscape'
+    }
+  };
+
+  // Меняем текст кнопки
+  const btn = event?.target;
+  if (btn) {
+    btn.textContent = '⏳ Генерация...';
+    btn.disabled = true;
+  }
+
+  html2pdf()
+    .set(opt)
+    .from(clone)
+    .save()
+    .then(() => {
+      if (btn) {
+        btn.textContent = '📄 PDF';
+        btn.disabled = false;
+      }
+    })
+    .catch((err) => {
+      console.error('❌ Ошибка PDF:', err);
+      alert('❌ Ошибка генерации PDF: ' + err.message);
+      if (btn) {
+        btn.textContent = '📄 PDF';
+        btn.disabled = false;
+      }
+    });
+}
+
+// ============================================================
+//  ОСНОВНОЙ ОТЧЕТ
+// ============================================================
 async function renderReports() {
   const container = document.getElementById('adminContent');
   if (!container) return;
@@ -25,24 +107,18 @@ async function renderReports() {
     const points = await getPickupPoints();
     const users = await getUsers();
 
-    // ============================================
-    // 1. ФИНАНСОВЫЙ ОТЧЕТ
-    // ============================================
+    // ===== 1. ФИНАНСЫ =====
     const totalOrders = orders.length;
     const totalRevenue = orders.reduce((sum, o) => sum + o.total, 0);
     const avgCheck = totalOrders > 0 ? Math.round(totalRevenue / totalOrders) : 0;
 
-    // ============================================
-    // 2. ПО СТАТУСАМ
-    // ============================================
+    // ===== 2. СТАТУСЫ =====
     const statusStats = {};
     orders.forEach(o => {
       statusStats[o.status] = (statusStats[o.status] || 0) + 1;
     });
 
-    // ============================================
-    // 3. ПО ПУНКТАМ ВЫДАЧИ
-    // ============================================
+    // ===== 3. ПУНКТЫ =====
     const pointStats = {};
     orders.forEach(o => {
       const point = points.find(p => p.id === o.pickupPointId);
@@ -55,9 +131,7 @@ async function renderReports() {
     });
     const pointEntries = Object.entries(pointStats).sort((a, b) => b[1].orders - a[1].orders);
 
-    // ============================================
-    // 4. ТОП-10 ТОВАРОВ
-    // ============================================
+    // ===== 4. ТОП-10 ТОВАРОВ =====
     const productStats = {};
     orders.forEach(o => {
       o.items.forEach(item => {
@@ -75,9 +149,7 @@ async function renderReports() {
       .slice(0, 10);
     const maxQuantity = topProducts.length > 0 ? topProducts[0][1].quantity : 1;
 
-    // ============================================
-    // 5. ПО ПЕРИОДАМ
-    // ============================================
+    // ===== 5. ПЕРИОДЫ =====
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekAgo = new Date(today);
@@ -85,23 +157,14 @@ async function renderReports() {
     const monthAgo = new Date(today);
     monthAgo.setMonth(monthAgo.getMonth() - 1);
 
-    const revenueToday = orders
-      .filter(o => new Date(o.createdAt) >= today)
-      .reduce((sum, o) => sum + o.total, 0);
-    const revenueWeek = orders
-      .filter(o => new Date(o.createdAt) >= weekAgo)
-      .reduce((sum, o) => sum + o.total, 0);
-    const revenueMonth = orders
-      .filter(o => new Date(o.createdAt) >= monthAgo)
-      .reduce((sum, o) => sum + o.total, 0);
-
+    const revenueToday = orders.filter(o => new Date(o.createdAt) >= today).reduce((sum, o) => sum + o.total, 0);
+    const revenueWeek = orders.filter(o => new Date(o.createdAt) >= weekAgo).reduce((sum, o) => sum + o.total, 0);
+    const revenueMonth = orders.filter(o => new Date(o.createdAt) >= monthAgo).reduce((sum, o) => sum + o.total, 0);
     const ordersToday = orders.filter(o => new Date(o.createdAt) >= today).length;
     const ordersWeek = orders.filter(o => new Date(o.createdAt) >= weekAgo).length;
     const ordersMonth = orders.filter(o => new Date(o.createdAt) >= monthAgo).length;
 
-    // ============================================
-    // 6. ПО СОТРУДНИКАМ (кто оформил заказы)
-    // ============================================
+    // ===== 6. СОТРУДНИКИ =====
     const userStats = {};
     orders.forEach(o => {
       const user = users.find(u => u.id === o.userId);
@@ -114,98 +177,64 @@ async function renderReports() {
     });
     const userEntries = Object.entries(userStats).sort((a, b) => b[1].orders - a[1].orders);
 
-    // ============================================
-    // СТРОИМ HTML
-    // ============================================
+    // ============================================================
+    //  СТРОИМ HTML
+    // ============================================================
     let html = `
       <div class="reports">
         <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px; margin-bottom:20px;">
           <h1 style="color:#fff; font-size:24px; font-weight:700;">📈 Отчеты</h1>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <button class="btn btn--primary" onclick="exportAllPDF()">📄 Экспорт все PDF</button>
+            <button class="btn btn--primary" onclick="exportAllReports()">📄 Все отчеты PDF</button>
             <button class="btn btn--outline" onclick="window.print()">🖨️ Печать</button>
           </div>
         </div>
 
-        <!-- 1. ФИНАНСОВЫЙ ОТЧЕТ -->
+        <!-- 1. ФИНАНСЫ -->
         <div class="reports__section" id="report-finance">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-            <h3>💰 Финансовый отчет</h3>
-            <button class="btn btn--outline btn--small" onclick="exportPDFFinance()">📄 PDF</button>
+            <h3 style="color:#fff;">💰 Финансовый отчет</h3>
+            <button class="btn btn--outline btn--small" onclick="exportReportToPDF('report-finance', 'Финансовый_отчет')">📄 PDF</button>
           </div>
-          <table style="width:100%; border-collapse:collapse; margin-top:8px;">
-            <thead>
-              <tr style="border-bottom:2px solid #2a2a2a;">
-                <th style="text-align:left; padding:8px 0; font-size:13px; color:#888;">Показатель</th>
-                <th style="text-align:right; padding:8px 0; font-size:13px; color:#888;">Значение</th>
-              </tr>
-            </thead>
+          <table>
+            <thead><tr><th>Показатель</th><th>Значение</th></tr></thead>
             <tbody>
-              <tr style="border-bottom:1px solid #2a2a2a;">
-                <td style="padding:8px 0; color:#ccc;">Всего заказов</td>
-                <td style="padding:8px 0; color:#fff; text-align:right;">${totalOrders}</td>
-              </tr>
-              <tr style="border-bottom:1px solid #2a2a2a;">
-                <td style="padding:8px 0; color:#ccc;">Общая выручка</td>
-                <td style="padding:8px 0; color:#F37321; text-align:right; font-weight:700;">${totalRevenue} ₽</td>
-              </tr>
-              <tr style="border-bottom:1px solid #2a2a2a;">
-                <td style="padding:8px 0; color:#ccc;">Средний чек</td>
-                <td style="padding:8px 0; color:#fff; text-align:right;">${avgCheck} ₽</td>
-              </tr>
+              <tr><td>Всего заказов</td><td>${totalOrders}</td></tr>
+              <tr><td>Общая выручка</td><td><strong>${totalRevenue} ₽</strong></td></tr>
+              <tr><td>Средний чек</td><td>${avgCheck} ₽</td></tr>
             </tbody>
           </table>
         </div>
 
-        <!-- 2. ПО СТАТУСАМ -->
+        <!-- 2. СТАТУСЫ -->
         <div class="reports__section" id="report-status">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-            <h3>📊 Заказы по статусам</h3>
-            <button class="btn btn--outline btn--small" onclick="exportPDFStatus()">📄 PDF</button>
+            <h3 style="color:#fff;">📊 Заказы по статусам</h3>
+            <button class="btn btn--outline btn--small" onclick="exportReportToPDF('report-status', 'Отчет_по_статусам')">📄 PDF</button>
           </div>
-          <table style="width:100%; border-collapse:collapse; margin-top:8px;">
-            <thead>
-              <tr style="border-bottom:2px solid #2a2a2a;">
-                <th style="text-align:left; padding:8px 0; font-size:13px; color:#888;">Статус</th>
-                <th style="text-align:right; padding:8px 0; font-size:13px; color:#888;">Количество</th>
-              </tr>
-            </thead>
+          <table>
+            <thead><tr><th>Статус</th><th>Количество</th></tr></thead>
             <tbody>
               ${Object.entries(statusStats).map(([status, count]) => {
-                const statusObj = getStatusLabel(status);
-                return `
-                  <tr style="border-bottom:1px solid #2a2a2a;">
-                    <td style="padding:8px 0; color:#ccc;"><span class="status-badge ${statusObj.class}">${statusObj.label}</span></td>
-                    <td style="padding:8px 0; color:#fff; text-align:right;">${count}</td>
-                  </tr>
-                `;
+                const s = getStatusLabel(status);
+                return `<tr><td><span class="status-badge ${s.class}">${s.label}</span></td><td>${count}</td></tr>`;
               }).join('')}
             </tbody>
           </table>
         </div>
 
-        <!-- 3. ПО ПУНКТАМ ВЫДАЧИ -->
+        <!-- 3. ПУНКТЫ -->
         <div class="reports__section" id="report-points">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-            <h3>📍 Заказы по пунктам выдачи</h3>
-            <button class="btn btn--outline btn--small" onclick="exportPDFPoints()">📄 PDF</button>
+            <h3 style="color:#fff;">📍 Заказы по пунктам выдачи</h3>
+            <button class="btn btn--outline btn--small" onclick="exportReportToPDF('report-points', 'Отчет_по_пунктам')">📄 PDF</button>
           </div>
           ${pointEntries.length === 0 ? '<p style="color:#666;">Нет данных</p>' : `
-            <table style="width:100%; border-collapse:collapse; margin-top:8px;">
-              <thead>
-                <tr style="border-bottom:2px solid #2a2a2a;">
-                  <th style="text-align:left; padding:8px 0; font-size:13px; color:#888;">Пункт выдачи</th>
-                  <th style="text-align:right; padding:8px 0; font-size:13px; color:#888;">Заказов</th>
-                  <th style="text-align:right; padding:8px 0; font-size:13px; color:#888;">Выручка</th>
-                </tr>
-              </thead>
+            <table>
+              <thead><tr><th>Пункт выдачи</th><th>Заказов</th><th>Выручка</th></tr></thead>
               <tbody>
                 ${pointEntries.map(([name, stats]) => `
-                  <tr style="border-bottom:1px solid #2a2a2a;">
-                    <td style="padding:8px 0; color:#ccc;">${name}</td>
-                    <td style="padding:8px 0; color:#fff; text-align:right;">${stats.orders}</td>
-                    <td style="padding:8px 0; color:#F37321; text-align:right; font-weight:600;">${stats.revenue} ₽</td>
-                  </tr>
+                  <tr><td>${name}</td><td>${stats.orders}</td><td><strong>${stats.revenue} ₽</strong></td></tr>
                 `).join('')}
               </tbody>
             </table>
@@ -215,99 +244,49 @@ async function renderReports() {
         <!-- 4. ТОП-10 ТОВАРОВ -->
         <div class="reports__section" id="report-products">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-            <h3>🏆 Топ-10 популярных товаров</h3>
-            <button class="btn btn--outline btn--small" onclick="exportPDFProducts()">📄 PDF</button>
+            <h3 style="color:#fff;">🏆 Топ-10 популярных товаров</h3>
+            <button class="btn btn--outline btn--small" onclick="exportReportToPDF('report-products', 'Отчет_по_товарам')">📄 PDF</button>
           </div>
           ${topProducts.length === 0 ? '<p style="color:#666;">Нет данных</p>' : `
-            <table style="width:100%; border-collapse:collapse; margin-top:8px;">
-              <thead>
-                <tr style="border-bottom:2px solid #2a2a2a;">
-                  <th style="text-align:left; padding:8px 0; font-size:13px; color:#888;">#</th>
-                  <th style="text-align:left; padding:8px 0; font-size:13px; color:#888;">Товар</th>
-                  <th style="text-align:right; padding:8px 0; font-size:13px; color:#888;">Кол-во</th>
-                  <th style="text-align:right; padding:8px 0; font-size:13px; color:#888;">Выручка</th>
-                  <th style="text-align:right; padding:8px 0; font-size:13px; color:#888;">%</th>
-                </tr>
-              </thead>
+            <table>
+              <thead><tr><th>#</th><th>Товар</th><th>Кол-во</th><th>Выручка</th></tr></thead>
               <tbody>
-                ${topProducts.map(([name, stats], index) => {
-                  const percent = Math.round((stats.quantity / maxQuantity) * 100);
-                  return `
-                    <tr style="border-bottom:1px solid #2a2a2a;">
-                      <td style="padding:8px 0; color:#F37321; font-weight:700;">${index + 1}</td>
-                      <td style="padding:8px 0; color:#ccc;">${name}</td>
-                      <td style="padding:8px 0; color:#fff; text-align:right;">${stats.quantity}</td>
-                      <td style="padding:8px 0; color:#F37321; text-align:right; font-weight:600;">${stats.revenue} ₽</td>
-                      <td style="padding:8px 0; color:#888; text-align:right;">
-                        <div style="display:inline-block; width:60px; height:8px; background:#2a2a2a; border-radius:4px; overflow:hidden; vertical-align:middle;">
-                          <div style="height:100%; width:${percent}%; background:#F37321; border-radius:4px;"></div>
-                        </div>
-                        <span style="margin-left:6px;">${percent}%</span>
-                      </td>
-                    </tr>
-                  `;
-                }).join('')}
+                ${topProducts.map(([name, stats], index) => `
+                  <tr><td>${index + 1}</td><td>${name}</td><td>${stats.quantity}</td><td><strong>${stats.revenue} ₽</strong></td></tr>
+                `).join('')}
               </tbody>
             </table>
           `}
         </div>
 
-        <!-- 5. ПО ПЕРИОДАМ -->
+        <!-- 5. ПЕРИОДЫ -->
         <div class="reports__section" id="report-periods">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-            <h3>📅 Выручка по периодам</h3>
-            <button class="btn btn--outline btn--small" onclick="exportPDFPeriods()">📄 PDF</button>
+            <h3 style="color:#fff;">📅 Выручка по периодам</h3>
+            <button class="btn btn--outline btn--small" onclick="exportReportToPDF('report-periods', 'Отчет_по_периодам')">📄 PDF</button>
           </div>
-          <table style="width:100%; border-collapse:collapse; margin-top:8px;">
-            <thead>
-              <tr style="border-bottom:2px solid #2a2a2a;">
-                <th style="text-align:left; padding:8px 0; font-size:13px; color:#888;">Период</th>
-                <th style="text-align:right; padding:8px 0; font-size:13px; color:#888;">Заказов</th>
-                <th style="text-align:right; padding:8px 0; font-size:13px; color:#888;">Выручка</th>
-              </tr>
-            </thead>
+          <table>
+            <thead><tr><th>Период</th><th>Заказов</th><th>Выручка</th></tr></thead>
             <tbody>
-              <tr style="border-bottom:1px solid #2a2a2a;">
-                <td style="padding:8px 0; color:#ccc;">Сегодня</td>
-                <td style="padding:8px 0; color:#fff; text-align:right;">${ordersToday}</td>
-                <td style="padding:8px 0; color:#F37321; text-align:right; font-weight:600;">${revenueToday} ₽</td>
-              </tr>
-              <tr style="border-bottom:1px solid #2a2a2a;">
-                <td style="padding:8px 0; color:#ccc;">Неделя</td>
-                <td style="padding:8px 0; color:#fff; text-align:right;">${ordersWeek}</td>
-                <td style="padding:8px 0; color:#F37321; text-align:right; font-weight:600;">${revenueWeek} ₽</td>
-              </tr>
-              <tr style="border-bottom:1px solid #2a2a2a;">
-                <td style="padding:8px 0; color:#ccc;">Месяц</td>
-                <td style="padding:8px 0; color:#fff; text-align:right;">${ordersMonth}</td>
-                <td style="padding:8px 0; color:#F37321; text-align:right; font-weight:600;">${revenueMonth} ₽</td>
-              </tr>
+              <tr><td>Сегодня</td><td>${ordersToday}</td><td><strong>${revenueToday} ₽</strong></td></tr>
+              <tr><td>Неделя</td><td>${ordersWeek}</td><td><strong>${revenueWeek} ₽</strong></td></tr>
+              <tr><td>Месяц</td><td>${ordersMonth}</td><td><strong>${revenueMonth} ₽</strong></td></tr>
             </tbody>
           </table>
         </div>
 
-        <!-- 6. ПО СОТРУДНИКАМ -->
+        <!-- 6. СОТРУДНИКИ -->
         <div class="reports__section" id="report-users">
           <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-            <h3>👥 Заказы по сотрудникам</h3>
-            <button class="btn btn--outline btn--small" onclick="exportPDFUsers()">📄 PDF</button>
+            <h3 style="color:#fff;">👥 Заказы по сотрудникам</h3>
+            <button class="btn btn--outline btn--small" onclick="exportReportToPDF('report-users', 'Отчет_по_сотрудникам')">📄 PDF</button>
           </div>
           ${userEntries.length === 0 ? '<p style="color:#666;">Нет данных</p>' : `
-            <table style="width:100%; border-collapse:collapse; margin-top:8px;">
-              <thead>
-                <tr style="border-bottom:2px solid #2a2a2a;">
-                  <th style="text-align:left; padding:8px 0; font-size:13px; color:#888;">Сотрудник</th>
-                  <th style="text-align:right; padding:8px 0; font-size:13px; color:#888;">Заказов</th>
-                  <th style="text-align:right; padding:8px 0; font-size:13px; color:#888;">Выручка</th>
-                </tr>
-              </thead>
+            <table>
+              <thead><tr><th>Сотрудник</th><th>Заказов</th><th>Выручка</th></tr></thead>
               <tbody>
                 ${userEntries.map(([name, stats]) => `
-                  <tr style="border-bottom:1px solid #2a2a2a;">
-                    <td style="padding:8px 0; color:#ccc;">${name}</td>
-                    <td style="padding:8px 0; color:#fff; text-align:right;">${stats.orders}</td>
-                    <td style="padding:8px 0; color:#F37321; text-align:right; font-weight:600;">${stats.revenue} ₽</td>
-                  </tr>
+                  <tr><td>${name}</td><td>${stats.orders}</td><td><strong>${stats.revenue} ₽</strong></td></tr>
                 `).join('')}
               </tbody>
             </table>
@@ -322,146 +301,37 @@ async function renderReports() {
 
     container.innerHTML = html;
 
-    // ===== СОХРАНЯЕМ ДАННЫЕ ДЛЯ PDF =====
-    window._reportData = {
-      orders, products, points, users,
-      totalOrders, totalRevenue, avgCheck,
-      statusStats, pointEntries, topProducts, maxQuantity,
-      revenueToday, revenueWeek, revenueMonth,
-      ordersToday, ordersWeek, ordersMonth,
-      userEntries
-    };
-
   } catch (error) {
-    container.innerHTML = `<p style="color:#dc3545;">❌ Ошибка загрузки отчетов: ${error.message}</p>`;
+    container.innerHTML = `<p style="color:#dc3545;">❌ Ошибка: ${error.message}</p>`;
   }
 }
 
 // ============================================================
-//  ФУНКЦИИ ЭКСПОРТА PDF
+//  ВСЕ ОТЧЕТЫ СРАЗУ
 // ============================================================
-
-function getPDFData() {
-  return window._reportData || {};
-}
-
-function generatePDF(title, headers, rows, filename) {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF('landscape', 'mm', 'a4');
-
-  // ===== РУССКИЙ ШРИФТ =====
-  // Используем встроенный шрифт с поддержкой кириллицы
-  doc.setFont('times', 'normal');
-
-  doc.setFontSize(18);
-  doc.text(title, 14, 20);
-  doc.setFontSize(10);
-  doc.text('Додо Пицца — автоматизированная система заказов', 14, 28);
-  doc.text('Сгенерирован: ' + new Date().toLocaleString('ru-RU'), 14, 34);
-
-  doc.autoTable({
-    head: [headers],
-    body: rows,
-    startY: 42,
-    theme: 'grid',
-    styles: {
-      fontSize: 8,
-      cellPadding: 2,
-      font: 'times'
-    },
-    headStyles: {
-      fillColor: [243, 115, 33],
-      textColor: [255, 255, 255],
-      fontSize: 9,
-      font: 'times'
-    },
-    alternateRowStyles: { fillColor: [240, 240, 240] }
-  });
-
-  doc.save(filename + '.pdf');
-}
-
-// ===== 1. ФИНАНСЫ =====
-function exportPDFFinance() {
-  const d = getPDFData();
-  if (!d.totalOrders) { alert('Нет данных для отчета'); return; }
-  generatePDF(
-    '💰 Финансовый отчет',
-    ['Показатель', 'Значение'],
-    [
-      ['Всего заказов', d.totalOrders],
-      ['Общая выручка', d.totalRevenue + ' ₽'],
-      ['Средний чек', d.avgCheck + ' ₽']
-    ],
-    'Финансовый_отчет'
-  );
-}
-
-// ===== 2. СТАТУСЫ =====
-function exportPDFStatus() {
-  const d = getPDFData();
-  if (!d.statusStats || Object.keys(d.statusStats).length === 0) { alert('Нет данных'); return; }
-  const rows = Object.entries(d.statusStats).map(([status, count]) => {
-    const label = getStatusLabel(status).label;
-    return [label, count];
-  });
-  generatePDF('📊 Заказы по статусам', ['Статус', 'Количество'], rows, 'Отчет_по_статусам');
-}
-
-// ===== 3. ПУНКТЫ =====
-function exportPDFPoints() {
-  const d = getPDFData();
-  if (!d.pointEntries || d.pointEntries.length === 0) { alert('Нет данных'); return; }
-  const rows = d.pointEntries.map(([name, stats]) => [name, stats.orders, stats.revenue + ' ₽']);
-  generatePDF('📍 Заказы по пунктам выдачи', ['Пункт выдачи', 'Заказов', 'Выручка'], rows, 'Отчет_по_пунктам');
-}
-
-// ===== 4. ТОВАРЫ =====
-function exportPDFProducts() {
-  const d = getPDFData();
-  if (!d.topProducts || d.topProducts.length === 0) { alert('Нет данных'); return; }
-  const rows = d.topProducts.map(([name, stats], i) => [i + 1, name, stats.quantity, stats.revenue + ' ₽']);
-  generatePDF('🏆 Топ-10 популярных товаров', ['#', 'Товар', 'Кол-во', 'Выручка'], rows, 'Отчет_по_товарам');
-}
-
-// ===== 5. ПЕРИОДЫ =====
-function exportPDFPeriods() {
-  const d = getPDFData();
-  if (!d.revenueToday && !d.revenueWeek && !d.revenueMonth) { alert('Нет данных'); return; }
-  const rows = [
-    ['Сегодня', d.ordersToday || 0, d.revenueToday + ' ₽'],
-    ['Неделя', d.ordersWeek || 0, d.revenueWeek + ' ₽'],
-    ['Месяц', d.ordersMonth || 0, d.revenueMonth + ' ₽']
+function exportAllReports() {
+  const reports = [
+    { id: 'report-finance', name: 'Финансовый_отчет' },
+    { id: 'report-status', name: 'Отчет_по_статусам' },
+    { id: 'report-points', name: 'Отчет_по_пунктам' },
+    { id: 'report-products', name: 'Отчет_по_товарам' },
+    { id: 'report-periods', name: 'Отчет_по_периодам' },
+    { id: 'report-users', name: 'Отчет_по_сотрудникам' }
   ];
-  generatePDF('📅 Выручка по периодам', ['Период', 'Заказов', 'Выручка'], rows, 'Отчет_по_периодам');
-}
 
-// ===== 6. СОТРУДНИКИ =====
-function exportPDFUsers() {
-  const d = getPDFData();
-  if (!d.userEntries || d.userEntries.length === 0) { alert('Нет данных'); return; }
-  const rows = d.userEntries.map(([name, stats]) => [name, stats.orders, stats.revenue + ' ₽']);
-  generatePDF('👥 Заказы по сотрудникам', ['Сотрудник', 'Заказов', 'Выручка'], rows, 'Отчет_по_сотрудникам');
-}
-
-// ===== ВСЕ ОТЧЕТЫ =====
-function exportAllPDF() {
-  exportPDFFinance();
-  setTimeout(exportPDFStatus, 300);
-  setTimeout(exportPDFPoints, 600);
-  setTimeout(exportPDFProducts, 900);
-  setTimeout(exportPDFPeriods, 1200);
-  setTimeout(exportPDFUsers, 1500);
+  let delay = 0;
+  reports.forEach(r => {
+    setTimeout(() => {
+      exportReportToPDF(r.id, r.name);
+    }, delay);
+    delay += 500;
+  });
 }
 
 // ===== ЭКСПОРТ =====
 window.renderReports = renderReports;
-window.exportPDFFinance = exportPDFFinance;
-window.exportPDFStatus = exportPDFStatus;
-window.exportPDFPoints = exportPDFPoints;
-window.exportPDFProducts = exportPDFProducts;
-window.exportPDFPeriods = exportPDFPeriods;
-window.exportPDFUsers = exportPDFUsers;
-window.exportAllPDF = exportAllPDF;
+window.exportReportToPDF = exportReportToPDF;
+window.exportAllReports = exportAllReports;
+window.getStatusLabel = getStatusLabel;
 // ===== ЭКСПОРТ =====
 window.renderReports = renderReports;
