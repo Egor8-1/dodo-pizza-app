@@ -16,7 +16,7 @@ function getStatusLabel(status) {
 //  ЭКСПОРТ В PDF ЧЕРЕЗ PDF-LIB
 // ============================================================
 
-async function exportReportToPDF(reportId, title) {
+function exportReportToPDF(reportId, title) {
   const element = document.getElementById(reportId);
   if (!element) {
     alert('❌ Отчет не найден');
@@ -63,92 +63,55 @@ async function exportReportToPDF(reportId, title) {
   }
 
   try {
-    // ===== СОЗДАЕМ PDF =====
-    const { PDFDocument, rgb, StandardFonts } = PDFLib;
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF('landscape', 'mm', 'a4');
 
-    // Создаем документ
-    const doc = await PDFDocument.create();
-    const page = doc.addPage([842, 595]); // A4 landscape
-
-    // Встраиваем стандартный шрифт (поддерживает кириллицу)
-    const font = await doc.embedFont(StandardFonts.Helvetica);
-
-    // Размеры страницы
-    const { width, height } = page.getSize();
-    let y = height - 40;
-
-    // Функция для рисования текста с поддержкой кириллицы
-    function drawText(text, x, y, size = 14, color = rgb(0, 0, 0)) {
-      page.drawText(text, {
-        x: x,
-        y: y,
-        size: size,
-        font: font,
-        color: color
-      });
+    // Функция для преобразования текста в Unicode-коды
+    function toUnicode(str) {
+      return str.split('').map(function(char) {
+        var code = char.charCodeAt(0);
+        if (code > 127) {
+          return '\\u' + code.toString(16).padStart(4, '0');
+        }
+        return char;
+      }).join('');
     }
 
     // Заголовок
-    drawText(title, 50, y, 18, rgb(0.95, 0.45, 0.13));
-    y -= 20;
+    doc.setFontSize(18);
+    doc.text(toUnicode(title), 14, 20);
 
-    drawText('Додо Пицца — автоматизированная система заказов', 50, y, 10);
-    y -= 14;
-    drawText('Сгенерирован: ' + new Date().toLocaleString('ru-RU'), 50, y, 10);
-    y -= 20;
+    doc.setFontSize(10);
+    doc.text(toUnicode('Додо Пицца — автоматизированная система заказов'), 14, 28);
+    doc.text(toUnicode('Сгенерирован: ' + new Date().toLocaleString('ru-RU')), 14, 34);
 
-    // ===== РИСУЕМ ТАБЛИЦУ =====
-    const cellPadding = 6;
-    const colWidth = (width - 100) / headers.length;
-    const rowHeight = 20;
-
-    // Заголовки
-    let x = 50;
-    headers.forEach(header => {
-      page.drawRectangle({
-        x: x,
-        y: y - rowHeight,
-        width: colWidth,
-        height: rowHeight,
-        borderColor: rgb(0.2, 0.2, 0.2),
-        borderWidth: 1,
-        color: rgb(0.95, 0.45, 0.13)
-      });
-      drawText(header, x + cellPadding, y - cellPadding - 12, 9, rgb(1, 1, 1));
-      x += colWidth;
+    // Таблица
+    doc.autoTable({
+      head: [headers.map(toUnicode)],
+      body: rows.map(function(row) {
+        return row.map(toUnicode);
+      }),
+      startY: 42,
+      theme: 'grid',
+      styles: {
+        fontSize: 8,
+        cellPadding: 2
+      },
+      headStyles: {
+        fillColor: [243, 115, 33],
+        textColor: [255, 255, 255],
+        fontSize: 9
+      },
+      alternateRowStyles: {
+        fillColor: [240, 240, 240]
+      }
     });
 
-    y -= rowHeight;
-
-    // Строки
-    rows.forEach(row => {
-      x = 50;
-      row.forEach(cell => {
-        page.drawRectangle({
-          x: x,
-          y: y - rowHeight,
-          width: colWidth,
-          height: rowHeight,
-          borderColor: rgb(0.2, 0.2, 0.2),
-          borderWidth: 1
-        });
-        drawText(cell, x + cellPadding, y - cellPadding - 12, 8, rgb(0, 0, 0));
-        x += colWidth;
-      });
-      y -= rowHeight;
-    });
-
-    // Сохраняем PDF
-    const pdfBytes = await doc.save();
-    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.download = title + '.pdf';
-    link.click();
+    doc.save(title + '.pdf');
 
     if (btn) {
       btn.textContent = '✅ PDF готов';
-      setTimeout(() => {
+      setTimeout(function() {
         btn.textContent = '📄 PDF';
         btn.disabled = false;
       }, 2000);
@@ -163,7 +126,6 @@ async function exportReportToPDF(reportId, title) {
     }
   }
 }
-
 // ============================================================
 //  ВСЕ ОТЧЕТЫ СРАЗУ
 // ============================================================
