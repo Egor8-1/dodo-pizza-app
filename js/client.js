@@ -1,1 +1,92 @@
+// ============================================================
+//  BERDSK_PIZZA — КЛИЕНТСКАЯ ЛОГИКА
+//  Каталог, корзина, заказы, бонусы
+// ============================================================
 
+// ===== НАВИГАЦИЯ =====
+function navigateTo(page) {
+  const links = document.querySelectorAll('.header__link[data-page]');
+  links.forEach(link => link.classList.remove('active'));
+  const activeLink = document.querySelector(`.header__link[data-page="${page}"]`);
+  if (activeLink) activeLink.classList.add('active');
+
+  switch (page) {
+    case 'catalog': renderCatalog(); break;
+    case 'cart': renderCart(); break;
+    case 'orders': renderOrders(); break;
+    case 'bonuses': renderBonuses(); break;
+    default: renderCatalog();
+  }
+}
+
+// ===== КАТАЛОГ =====
+async function renderCatalog(category = 'Все') {
+  const container = document.getElementById('content');
+  if (!container) return;
+
+  try {
+    const products = await getProducts();
+    const categories = ['Все', ...new Set(products.map(p => p.category))];
+
+    let filtered = products;
+    if (category !== 'Все') {
+      filtered = products.filter(p => p.category === category);
+    }
+
+    let html = `
+      <div class="catalog">
+        <div class="catalog__greeting">🍕 Привет, ${getCurrentUser()?.name || 'гость'}!</div>
+        <div class="catalog__subtitle">Что сегодня закажешь?</div>
+        <div class="catalog__categories">
+    `;
+
+    categories.forEach(cat => {
+      const active = cat === category ? 'active' : '';
+      html += `<button class="catalog__category ${active}" onclick="renderCatalog('${cat}')">${cat}</button>`;
+    });
+
+    html += `</div><div class="catalog__grid">`;
+
+    filtered.forEach(product => {
+      html += `
+        <div class="product-card">
+          <div class="product-card__image">${product.image || '🍕'}</div>
+          <div class="product-card__body">
+            <div class="product-card__name">${product.name}</div>
+            <div class="product-card__description">${product.description || ''}</div>
+            <div class="product-card__bottom">
+              <span class="product-card__price">${product.price} ₽</span>
+              <button class="product-card__add" onclick="addToCart(${product.id}); updateCartCount();">+ В корзину</button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    html += `</div></div>`;
+    container.innerHTML = html;
+  } catch (error) {
+    container.innerHTML = `<p style="color:#dc3545;">⚠️ Ошибка: ${error.message}</p>`;
+  }
+}
+
+// ===== ИНИЦИАЛИЗАЦИЯ =====
+document.addEventListener('DOMContentLoaded', function() {
+  loadCart();
+  updateCartCount();
+
+  document.querySelectorAll('.header__link[data-page]').forEach(function(link) {
+    link.addEventListener('click', function(e) {
+      e.preventDefault();
+      navigateTo(this.dataset.page);
+    });
+  });
+
+  renderCatalog();
+  initAuthUI();
+
+  console.log('🍕 Бердск_pizza загружена');
+});
+
+window.navigateTo = navigateTo;
+window.renderCatalog = renderCatalog;
