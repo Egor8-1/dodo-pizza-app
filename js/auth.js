@@ -49,37 +49,37 @@ function hasRole(role) {
 }
 
 // ===== ЛОГИН =====
-async function login(login, password, role) {
+async function login(login, password) {
   const users = await getUsers();
-  const user = users.find(
-    (u) => u.login === login && u.password === password && u.role === role,
+  const user = users.find(u => 
+    u.login === login && 
+    u.password === password
   );
 
   if (!user) {
-    throw new Error("❌ Неверный логин, пароль или роль");
+    throw new Error('❌ Неверный логин или пароль');
   }
 
   saveUser(user);
   return user;
 }
-
+// ===== РЕГИСТРАЦИЯ =====
 // ===== РЕГИСТРАЦИЯ =====
 async function register(name, login, password) {
   const users = await getUsers();
-  if (users.find((u) => u.login === login)) {
-    throw new Error("❌ Пользователь с таким логином уже существует");
+  if (users.find(u => u.login === login)) {
+    throw new Error('❌ Пользователь с таким логином уже существует');
   }
 
   const newUser = {
     name: name,
     login: login,
     password: password,
-    role: "client",
+    role: 'client' // всегда клиент
   };
 
   return createUser(newUser);
 }
-
 // ===== UI АВТОРИЗАЦИИ =====
 function initAuthUI() {
   const user = getCurrentUser();
@@ -122,32 +122,42 @@ function initAuthUI() {
 // ============================================================
 
 document.addEventListener("DOMContentLoaded", () => {
-  // ===== ФОРМА ЛОГИНА =====
-  const authForm = document.getElementById("authForm");
-  if (authForm) {
-    authForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
+ // ===== ФОРМА ЛОГИНА =====
+const authForm = document.getElementById('authForm');
+if (authForm) {
+  authForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-      const login = document.getElementById("loginInput").value.trim();
-      const password = document.getElementById("passwordInput").value.trim();
-      const role = document.getElementById("roleSelect").value;
+    const login = document.getElementById('loginInput').value.trim();
+    const password = document.getElementById('passwordInput').value.trim();
 
-      if (!login || !password) {
-        alert("⚠️ Заполните все поля");
-        return;
+    if (!login || !password) {
+      alert('⚠️ Заполните все поля');
+      return;
+    }
+
+    try {
+      const user = await login(login, password);
+      alert('✅ Добро пожаловать, ' + (user.name || user.login) + '!');
+      document.getElementById('authModal').classList.remove('active');
+      
+      // Перенаправление по роли
+      if (user.role === 'admin') {
+        window.location.href = 'admin.html';
+      } else if (user.role === 'kitchen') {
+        window.location.href = 'kitchen.html';
+      } else if (user.role === 'operator') {
+        window.location.href = 'operator.html';
+      } else if (user.role === 'courier') {
+        window.location.href = 'courier.html';
+      } else {
+        location.reload(); // клиент остается на index.html
       }
-
-      try {
-        const user = await login(login, password, role);
-        alert(`✅ Добро пожаловать, ${user.name || user.login}!`);
-        document.getElementById("authModal").classList.remove("active");
-        location.reload();
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+}
   // ===== ФОРМА РЕГИСТРАЦИИ =====
   const registerForm = document.getElementById("registerForm");
   if (registerForm) {
