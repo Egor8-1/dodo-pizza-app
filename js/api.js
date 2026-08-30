@@ -3,7 +3,7 @@
 // ============================================================
 
 // ===== НАСТРОЙКИ =====
-const SUPABASE_URL = 'https://nymcnpnoxmpyyztcncvf.supabase.co';
+const SUPABASE_URL = 'https://nymcnpnoxmpyyztcncvf.supabase.co/rest/v1/';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im55bWNucG5veG1weXl6dGNuY3ZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgwODczMDYsImV4cCI6MjEwMzY2MzMwNn0.sU0EVcmEDlEvuzBTTmMv9iZRtA8x05FIzGcrvlbICM0';
 
 // ===== ВСПОМОГАТЕЛЬНАЯ ФУНКЦИЯ =====
